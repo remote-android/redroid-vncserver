@@ -45,12 +45,11 @@
 #include <gui/Surface.h>
 #include <gui/SurfaceComposerClient.h>
 #include <gui/ISurfaceComposer.h>
-#include <ui/DisplayConfig.h>
+#include <ui/DisplayMode.h>
 #include <ui/DisplayState.h>
 
 #include "FrameOutput.h"
 
-using android::DisplayConfig;
 using android::FrameOutput;
 using android::IBinder;
 using android::IGraphicBufferProducer;
@@ -60,6 +59,7 @@ using android::ProcessState;
 using android::Rect;
 using android::String8;
 using android::SurfaceComposerClient;
+using android::ui::DisplayMode;
 using android::Vector;
 using android::sp;
 using android::status_t;
@@ -75,8 +75,7 @@ namespace ui = android::ui;
 
 static bool gVerbose = false;           // chatty on stdout
 static bool gRotate = false;            // rotate 90 degrees
-static uint32_t gVideoWidth = 0;        // default width+height
-static uint32_t gVideoHeight = 0;
+uint32_t gVideoWidth = 0, gVideoHeight = 0;
 static PhysicalDisplayId gPhysicalDisplayId;
 
 // Set by signal handler to stop recording.
@@ -94,14 +93,12 @@ static status_t setDisplayProjection(
         SurfaceComposerClient::Transaction& t,
         const sp<IBinder>& dpy,
         const ui::DisplayState& displayState) {
-    const ui::Size& viewport = displayState.viewport;
-
     // Set the region of the layer stack we're interested in, which in our
     // case is "all of it".
-    Rect layerStackRect(viewport);
+    Rect layerStackRect(displayState.layerStackSpaceRect);
 
     // We need to preserve the aspect ratio of the display.
-    float displayAspect = viewport.getHeight() / static_cast<float>(viewport.getWidth());
+    float displayAspect = layerStackRect.getHeight() / static_cast<float>(layerStackRect.getWidth());
 
 
     // Set the way we map the output onto the display surface (which will
@@ -165,7 +162,7 @@ static status_t prepareVirtualDisplay(
 		const sp<IGraphicBufferProducer>& bufferProducer,
 		sp<IBinder>* pDisplayHandle) {
 	sp<IBinder> dpy = SurfaceComposerClient::createDisplay(
-			String8("ScreenRecorder"), false /*secure*/);
+			String8("redroid"), false /*secure*/);
     SurfaceComposerClient::Transaction t;
     t.setDisplaySurface(dpy, bufferProducer);
     setDisplayProjection(t, dpy, displayState);
@@ -199,27 +196,27 @@ int main(int argc UNUSED, char* const argv[] UNUSED) {
         return err;
     }
 
-    DisplayConfig displayConfig;
-    err = SurfaceComposerClient::getActiveDisplayConfig(display, &displayConfig);
+    DisplayMode displayMode;
+    err = SurfaceComposerClient::getActiveDisplayMode(display, &displayMode);
     if (err != NO_ERROR) {
-        fprintf(stderr, "ERROR: unable to get display config\n");
+        fprintf(stderr, "ERROR: unable to get display mode\n");
         return err;
     }
 
-    const ui::Size& viewport = displayState.viewport;
+    const ui::Size& layerStackSpaceRect = displayState.layerStackSpaceRect;
     if (gVerbose) {
         printf("Display is %dx%d @%.2ffps (orientation=%s), layerStack=%u\n",
-                viewport.getWidth(), viewport.getHeight(), displayConfig.refreshRate,
+                layerStackSpaceRect.getWidth(), layerStackSpaceRect.getHeight(), displayMode.refreshRate,
                 toCString(displayState.orientation), displayState.layerStack);
         fflush(stdout);
     }
 
     // Encoder can't take odd number as config
     if (gVideoWidth == 0) {
-        gVideoWidth = floorToEven(viewport.getWidth());
+        gVideoWidth = floorToEven(layerStackSpaceRect.getWidth());
     }
     if (gVideoHeight == 0) {
-        gVideoHeight = floorToEven(viewport.getHeight());
+        gVideoHeight = floorToEven(layerStackSpaceRect.getHeight());
     }
 
 	sp<FrameOutput> frameOutput = new FrameOutput();

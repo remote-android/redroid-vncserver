@@ -23,11 +23,13 @@
 
 #include <utils/SystemClock.h>
 
-#include "FrameOutput.h"
 #include "IInputManager.h"
+#include "FrameOutput.h"
 #include "android_keycode.h"
 
 using namespace android;
+
+extern uint32_t gVideoWidth, gVideoHeight;
 
 static constexpr int kGlBytesPerPixel = 4;      // GL_RGBA
 
@@ -155,14 +157,13 @@ static void doptr(int buttonMask, int x, int y, rfbClientPtr cl)
             0 /*metaState*/,
             buttonState /*buttonState*/,
             MotionClassification::NONE /*classification*/,
-            0.0f /*xScale*/,
-            0.0f /*yScale*/,
-            0.0f /*xOffset*/,
-            0.0f /*yOffset*/,
+            ui::Transform() /*transform*/,
             1.0f /*xPrecision*/,
             1.0f /*yPrecision*/,
             0.0f /*rawXCursorPosition*/,
             0.0f /*rawYCursorPosition*/,
+            gVideoWidth /*displayWidth*/,
+            gVideoHeight /*displayHeight*/,
             now /*downTime*/,
             now /*eventTime*/,
             1 /*pointerCount*/,
@@ -398,7 +399,9 @@ status_t FrameOutput::copyFrame(long timeoutUsec) {
     // need to get 4 bytes/pixel and reduce it.  Depending on the size of the
     // screen and the device capabilities, this can take a while.
     GLenum glErr;
+    ALOGV("before glReadPixels");
     glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, mPixelBuf);
+    ALOGV("after glReadPixels");
     if ((glErr = glGetError()) != GL_NO_ERROR) {
         ALOGE("glReadPixels failed: %#x", glErr);
         return UNKNOWN_ERROR;
