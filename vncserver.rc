@@ -1,0 +1,10 @@
+service vncserver /system/bin/vncserver
+    class main
+    disabled
+
+on boot && property:ro.boot.use_redroid_vnc=1
+    start vncserver
+
+# legacy
+on boot && property:ro.kernel.redroid.vncserver=1
+    start vncserver
